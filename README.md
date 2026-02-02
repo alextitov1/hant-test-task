@@ -52,6 +52,7 @@ EC2 has only reasonable IAM permissions
 
 Building Windows AMI using Packer with Ansible
 ![packer-win-build](screenshots/packer-win-build.png)
+
 Verifying Nginx on Windows EC2 with a temporary self-signed TLS certificate.
 ![win-nginx-https](screenshots/packer-win-verify.png)
 
