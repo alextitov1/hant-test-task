@@ -1,0 +1,53 @@
+---
+- name: Install SSL Certificate from Secrets Manager
+  hosts: all
+  become: true
+  vars:
+    # Default secret name, should be overridden or updated if it changes
+    secret_name: "hantt-service-cert-1SSKPM"
+    cert_path: "/etc/pki/tls/certs/nginx-cert.crt"
+    key_path: "/etc/pki/tls/private/nginx-cert.key"
+
+    region: "ap-southeast-6"
+
+  tasks:
+    - name: Get AWS Account ID
+      ansible.builtin.command: aws sts get-caller-identity --query Account --output text
+      register: aws_account_id
+      changed_when: false
+
+    - name: Retrieve secret from Secrets Manager
+      ansible.builtin.shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "arn:aws:secretsmanager:{{ region }}:{{ aws_account_id.stdout }}:secret:{{ secret_name }}" \
+          --region "{{ region }}" \
+          --query SecretString \
+          --output text
+      register: secret_content
+      changed_when: false
+
+    - name: Save Certificate to file
+      ansible.builtin.copy:
+        # Extract the certificate PEM block using regex, ignoring potential JSON wrapper
+        content: "{{ secret_content.stdout | regex_search('(?s)-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----') }}\n"
+        dest: "{{ cert_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Nginx
+
+    - name: Save Private Key to file
+      ansible.builtin.copy:
+        # Extract the private key PEM block
+        content: "{{ secret_content.stdout | regex_search('(?s)-----BEGIN (RSA )?PRIVATE KEY-----.*?-----END (RSA )?PRIVATE KEY-----') }}\n"
+        dest: "{{ key_path }}"
+        owner: root
+        group: root
+        mode: '0600'
+      notify: Restart Nginx
+
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted

@@ -1,0 +1,21 @@
+{
+	"build": {
+		"dockerfile": "Containerfile",
+		"context": "../"
+	},
+	// "dockerComposeFile": ["./compose.yaml"],
+	// "service": "devcontainer",
+	// "workspaceFolder": "/workspace",
+	// "shutdownAction": "stopCompose",
+	
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"redhat.ansible",
+				"streetsidesoftware.code-spell-checker",
+				"4ops.terraform",
+				"4ops.packer"
+			]
+		}
+	}
+}

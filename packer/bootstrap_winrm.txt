@@ -1,0 +1,15 @@
+<powershell>
+# Enable WinRM
+write-output "Running User Data Script"
+write-output "Disabling WinRM over HTTPS to allow Packer to connect"
+
+winrm quickconfig -q
+winrm set winrm/config/service/auth '@{Basic="true"}'
+winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+winrm set winrm/config/winrs '@{MaxMemoryPerShellMB="1024"}'
+
+# Allow WinRM through firewall
+New-NetFirewallRule -DisplayName "WinRM-HTTP" -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow
+
+# Set Administrator password (if not random) - Packer handles password retrieval for random default
+</powershell>

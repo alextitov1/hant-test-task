@@ -1,0 +1,6 @@
+ansible==10.7.0 # ansible-core 2.18
+ansible-lint
+passlib
+distlib
+
+boto3

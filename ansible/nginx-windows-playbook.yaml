@@ -1,0 +1,129 @@
+---
+- name: Configure Nginx on Windows
+  hosts: all
+
+  vars:
+    nginx_version: "1.29.4"
+
+  tasks:
+    - name: Install Chocolatey
+      ansible.windows.win_powershell:
+        script: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force;
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
+          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+      args:
+        creates: C:\ProgramData\chocolatey\bin\choco.exe
+
+    - name: Install Nginx via Chocolatey
+      chocolatey.chocolatey.win_chocolatey:
+        name: nginx
+        state: present
+        version: "{{ nginx_version }}"
+
+    - name: Install NSSM (Non-Sucking Service Manager) via Chocolatey
+      chocolatey.chocolatey.win_chocolatey:
+        name: nssm
+        state: present
+
+    - name: Install OpenSSL via Chocolatey
+      chocolatey.chocolatey.win_chocolatey:
+        name: openssl
+        state: present
+
+    - name: Create SSL directory
+      ansible.windows.win_file:
+        path: C:\tools\nginx-{{ nginx_version }}\conf\ssl
+        state: directory
+
+    - name: Generate Self-Signed Certificate
+      ansible.windows.win_shell: |
+        & openssl req -x509 -nodes -days 365 -newkey rsa:2048 `
+        -keyout C:\tools\nginx-{{ nginx_version }}\conf\ssl\nginx.key `
+        -out C:\tools\nginx-{{ nginx_version }}\conf\ssl\nginx.crt `
+        -subj "/C=NZ/ST=Auckland/L=Auckland/O=HANTT/OU=Windows/CN=webserver-template-dev"
+      args:
+        creates: C:\tools\nginx-{{ nginx_version }}\conf\ssl\nginx.crt
+    # Chocolatey's nginx package might not set up a service automatically or might do it differently.
+    # Often it's better to ensure it's a service using NSSM regarding the executable.
+
+    - name: Ensure Nginx service is installed via NSSM
+      community.windows.win_nssm:
+        name: nginx
+        application: C:\tools\nginx-{{ nginx_version }}\nginx.exe
+        state: present
+
+    - name: Allow HTTP traffic on port 80
+      community.windows.win_firewall_rule:
+        name: Nginx HTTP
+        localport: 80
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+
+    - name: Allow HTTPS traffic on port 443
+      community.windows.win_firewall_rule:
+        name: Nginx HTTPS
+        localport: 443
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+
+    - name: Configure Nginx with SSL
+      ansible.windows.win_copy:
+        dest: C:\tools\nginx-{{ nginx_version }}\conf\nginx.conf
+        content: |
+          worker_processes  1;
+          events {
+              worker_connections  1024;
+          }
+          http {
+              include       mime.types;
+              default_type  application/octet-stream;
+              sendfile        on;
+              keepalive_timeout  65;
+              server {
+                  listen       80;
+                  server_name  localhost;
+                  location / {
+                      root   html;
+                      index  index.html index.htm;
+                  }
+              }
+              server {
+                  listen       443 ssl;
+                  server_name  localhost;
+                  ssl_certificate      ssl/nginx.crt;
+                  ssl_certificate_key  ssl/nginx.key;
+                  ssl_session_cache    shared:SSL:1m;
+                  ssl_session_timeout  5m;
+                  ssl_ciphers  HIGH:!aNULL:!MD5;
+                  ssl_prefer_server_ciphers  on;
+                  location / {
+                      root   html;
+                      index  index.html index.htm;
+                  }
+              }
+          }
+      notify: Restart Nginx
+
+    - name: Ensure Nginx service is running
+      ansible.windows.win_service:
+        name: nginx
+        state: started
+        start_mode: auto
+
+    - name: Create a simple index file
+      ansible.windows.win_copy:
+        content: "<html><body><h1>Hello from Nginx on Windows!</h1></body></html>"
+        dest: C:\tools\nginx-{{ nginx_version }}\html\index.html
+
+  handlers:
+    - name: Restart Nginx
+      ansible.windows.win_service:
+        name: nginx
+        state: restarted

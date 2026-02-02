@@ -1,0 +1,22 @@
+<powershell>
+$ErrorActionPreference = "Stop"
+
+# Configure WinRM for HTTP
+winrm quickconfig -q
+winrm set winrm/config/service/auth '@{Basic="true"}'
+winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+winrm set winrm/config/winrs '@{MaxMemoryPerShellMB="1024"}'
+
+# Configure WinRM for HTTPS (Self-Signed)
+$chk = Get-ChildItem WSMan:\Localhost\Listener | Where-Object { $_.Keys -contains "Transport=HTTPS" }
+if (-not $chk) {
+    $thumbprint = (New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation Cert:\LocalMachine\My).Thumbprint
+    $cmd = "winrm create winrm/config/Listener?Address=*+Transport=HTTPS @{Hostname=""$env:COMPUTERNAME""; CertificateThumbprint=""$thumbprint""}"
+    Invoke-Expression $cmd
+}
+
+# Firewall rules
+New-NetFirewallRule -DisplayName "WinRM-HTTP" -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "WinRM-HTTPS" -Direction Inbound -LocalPort 5986 -Protocol TCP -Action Allow
+
+</powershell>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EC2 Instance Information</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-card h2 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+
+        .info-value {
+            text-align: right;
+            color: #333;
+            word-break: break-all;
+        }
+
+        .info-value code {
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-stopped {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-unknown {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .tags-grid {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .tag-item {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag-key {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .tag-value {
+            color: #333;
+        }
+
+        .usage-bar-container {
+            width: 100%;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 25px;
+            position: relative;
+        }
+
+        .usage-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50 0%, #ffc107 70%, #f44336 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+
+        .timestamp {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 25px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .json-link {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        .json-link a {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+
+        .json-link a:hover {
+            background: #764ba2;
+        }
+
+        .no-data {
+            color: #999;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .info-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🖥️ EC2 Instance Dashboard</h1>
+            <p>Real-time information about this AWS EC2 instance</p>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="info-grid">
+            <!-- Instance Details -->
+            <div class="info-card">
+                <h2>📋 Instance Details</h2>
+                <div class="info-item">
+                    <span class="info-label">Instance ID:</span>
+                    <span class="info-value">
+                        {% if info.instance_id %}
+                            <code>{{ info.instance_id }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Instance Type:</span>
+                    <span class="info-value">
+                        {% if info.instance_type %}
+                            <code>{{ info.instance_type }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Instance State:</span>
+                    <span class="info-value">
+                        {% if info.instance_state == "running" %}
+                            <span class="status-badge status-running">{{ info.instance_state }}</span>
+                        {% elif info.instance_state == "stopped" %}
+                            <span class="status-badge status-stopped">{{ info.instance_state }}</span>
+                        {% else %}
+                            <span class="status-badge status-unknown">{{ info.instance_state or "unknown" }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Network Information -->
+            <div class="info-card">
+                <h2>🌐 Network Information</h2>
+                <div class="info-item">
+                    <span class="info-label">Region:</span>
+                    <span class="info-value">
+                        {% if info.region %}
+                            <code>{{ info.region }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Availability Zone:</span>
+                    <span class="info-value">
+                        {% if info.availability_zone %}
+                            <code>{{ info.availability_zone }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Private IP:</span>
+                    <span class="info-value">
+                        {% if info.private_ip %}
+                            <code>{{ info.private_ip }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Public IP:</span>
+                    <span class="info-value">
+                        {% if info.public_ip %}
+                            <code>{{ info.public_ip }}</code>
+                        {% else %}
+                            <span class="no-data">Not available</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Resource Usage -->
+            <div class="info-card">
+                <h2>📊 Resource Usage</h2>
+                <div class="info-item" style="flex-direction: column; align-items: stretch;">
+                    <span class="info-label" style="margin-bottom: 10px;">CPU Usage:</span>
+                    <div class="usage-bar-container">
+                        <div class="usage-bar" style="width: {{ info.cpu_usage_percent }}%;">
+                            {{ info.cpu_usage_percent }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="info-item" style="flex-direction: column; align-items: stretch; margin-top: 15px;">
+                    <span class="info-label" style="margin-bottom: 10px;">Memory Usage:</span>
+                    <div class="usage-bar-container">
+                        <div class="usage-bar" style="width: {{ info.memory_usage_percent }}%;">
+                            {{ info.memory_usage_percent }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="info-card" style="grid-column: 1 / -1;">
+                <h2>🏷️ Instance Tags</h2>
+                {% if info.tags and info.tags|length > 0 %}
+                    <div class="tags-grid">
+                        {% for key, value in info.tags.items() %}
+                            <div class="tag-item">
+                                <span class="tag-key">{{ key }}:</span>
+                                <span class="tag-value">{{ value }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-data" style="padding: 15px 0;">No tags available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Timestamp -->
+        <div class="timestamp">
+            Last updated: {{ info.timestamp }}
+        </div>
+
+        <!-- JSON API Link -->
+        <div class="json-link">
+            <a href="/instance-info" target="_blank">View JSON API Response</a>
+        </div>
+    </div>
+</body>
+</html>
