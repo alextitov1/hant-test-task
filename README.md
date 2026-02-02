@@ -50,10 +50,14 @@ EC2 provisioned using Packer-created AMI, but the cert installed from Secrets Ma
 EC2 has only reasonable IAM permissions
 ![iam-role](screenshots/iam-verify.png) 
 
+
 Building Windows AMI using Packer with Ansible
+
 ![packer-win-build](screenshots/packer-win-build.png)
 
+
 Verifying Nginx on Windows EC2 with a temporary self-signed TLS certificate.
+
 ![win-nginx-https](screenshots/packer-win-verify.png)
 
 
